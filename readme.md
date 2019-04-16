@@ -4,7 +4,7 @@ Stowarzyszenie Talent organizuje obozy informatyczne, na których używana jest 
 
 ## Instalacja
 
-> Cyk, pyk, Python 3.7+, pip po `requirements.txt`, internecik i lecimy z `-h` dla pomocy i git.
+> Python 3.7+, `pip install requirements.txt`, `talent_sorter.py -h`.
 
 ## Licencja
 
