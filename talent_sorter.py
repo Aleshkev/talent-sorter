@@ -37,8 +37,8 @@ def get_page(url: str, fresh: bool = False, cache: pathlib.Path = pathlib.Path('
         secret = yaml.safe_load(secret_file.read_text("utf-8"))
         login_response = session.post(login_url, data={
             "csrfmiddlewaretoken": session.cookies["csrftoken"],
-            "username": secret.get("username"),
-            "password": secret.get("password")
+            "username": secret.get("username").strip(),
+            "password": secret.get("password").strip()
         }, headers={
             "Referer": login_url
         })
