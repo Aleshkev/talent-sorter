@@ -64,9 +64,8 @@ def parse_ranking(page: str) -> Iterator[Tuple[str, int]]:
     for row in ranking.find_all('tr'):
         if row.find_all('th'):
             continue
-        name, = [str(o.get_text()).strip() for o in row.find_all('td') if 'user-cell' in o['class']]
-        _, points, *_ = [int(o.get_text()) for o in row.find_all('td') if
-                         'text-right' in o['class'] and o.get_text().strip()]
+        name, = [str(o.get_text()).strip() for o in row.find_all('td', class_='user-cell')]
+        _, points, *_ = [int(o.get_text()) for o in row.find_all('td', class_='text-right') if o.get_text().strip()]
         yield name, points
 
 
