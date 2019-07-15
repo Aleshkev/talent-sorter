@@ -1,3 +1,5 @@
+PyYAML
+slugify
 colorama
 requests
 beautifulsoup4

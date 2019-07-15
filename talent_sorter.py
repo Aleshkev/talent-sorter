@@ -1,5 +1,4 @@
 import argparse
-import base64
 import collections
 import os
 import pathlib
@@ -8,20 +7,44 @@ from typing import *
 import bs4
 import requests
 import colorama
+import slugify
+import yaml
 
 DARK = colorama.Style.BRIGHT + colorama.Fore.BLACK
 GREY = colorama.Style.DIM + colorama.Fore.WHITE
 WHITE = colorama.Style.BRIGHT + colorama.Fore.WHITE
 
+session = None
+
 
 def get_page(url: str, fresh: bool = False, cache: pathlib.Path = pathlib.Path('cache/')) -> str:
-    p = cache / (base64.urlsafe_b64encode(url.encode('ascii')).decode('ascii') + '.html')
+    p = cache / (slugify.slugify(url) + '.html')
     print(f"{DARK}{url} → {p}", end=" ")
     if p.is_file() and not fresh:
         print(f"{DARK}– from cache")
         return p.read_text('utf-8')
     print(f"{DARK}– fetch")
-    page = requests.get(url).text
+
+    global session
+    if session is None:
+        session = requests.Session()
+        login_url = url.replace("ranking", "login")
+        print(f"{DARK}Logging in – {login_url}")
+        session.get(login_url)
+
+        secret_file = pathlib.Path("secret.yaml")
+        assert secret_file.is_file(), "Please create file secret.yaml with username and password, see --help."
+        secret = yaml.safe_load(secret_file.read_text("utf-8"))
+        login_response = session.post(login_url, data={
+            "csrfmiddlewaretoken": session.cookies["csrftoken"],
+            "username": secret.get("username"),
+            "password": secret.get("password")
+        }, headers={
+            "Referer": login_url
+        })
+        assert not "error" in login_response.text.lower(), "Login probably failed."
+
+    page = session.get(url).text
     os.makedirs(str(cache), exist_ok=True)
     p.write_text(page, 'utf-8')
     return page
@@ -41,11 +64,19 @@ def parse_ranking(page: str) -> Iterator[Tuple[str, int]]:
 
 
 if __name__ == '__main__':
-    default_urls = ["http://10.0.0.1/c/grupa-diamentowa/ranking/c/",
-                    "http://10.0.0.1/c/platynowa/ranking/c/"]
-    default_multipliers = [3, 1]
+    default_urls = ["http://10.0.0.1/c/grupaa/ranking/",
+                    "http://10.0.0.1/c/grupa-b/ranking/",
+                    "http://10.0.0.1/c/grupa-c/ranking/"]
+    default_multipliers = [10, 3, 1]
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
+                                     epilog="As of recently, a file secrets.yaml with fields 'username' and 'password' "
+                                            "is required to log in. Example:\n"
+                                            "    username: ahitler\n"
+                                            "    password: correct horse battery staple\n"
+                                            "\n"
+                                            "Please report any issues at GitHub: "
+                                            "<https://github.com/Aleshkev/sio2-watcher>")
     parser.add_argument('--fresh', '-f', help="Don't use cached page", action='store_true')
     parser.add_argument('--urls', '-l', metavar='L', type=str, nargs='+', help="URLs of the rankings",
                         default=default_urls)
