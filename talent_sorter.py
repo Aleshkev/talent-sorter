@@ -40,14 +40,16 @@ def get_page(url: str, fresh: bool = False, cache: pathlib.Path = pathlib.Path('
         secret_file = pathlib.Path("secret.yaml")
         assert secret_file.is_file(), "Please create file secret.yaml with username and password, see --help."
         secret = yaml.safe_load(secret_file.read_text("utf-8"))
+        username = secret.get("username").strip()
+        password = secret.get("password").strip()
         login_response = session.post(login_url, data={
             "csrfmiddlewaretoken": session.cookies["csrftoken"],
-            "username": secret.get("username").strip(),
-            "password": secret.get("password").strip()
+            "username": username,
+            "password": password
         }, headers={
             "Referer": login_url
         })
-        assert not "error" in login_response.text.lower(), "Login probably failed."
+        assert bs(login_response.text).find(id="navbar-username").text.strip() == username, "Login failed. Probably."
 
     page = session.get(url).text
     os.makedirs(str(cache), exist_ok=True)
