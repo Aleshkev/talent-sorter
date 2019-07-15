@@ -14,6 +14,11 @@ DARK = colorama.Style.BRIGHT + colorama.Fore.BLACK
 GREY = colorama.Style.DIM + colorama.Fore.WHITE
 WHITE = colorama.Style.BRIGHT + colorama.Fore.WHITE
 
+
+def bs(page: str):
+    return bs4.BeautifulSoup(page, "html.parser")
+
+
 session = None
 
 
@@ -46,12 +51,12 @@ def get_page(url: str, fresh: bool = False, cache: pathlib.Path = pathlib.Path('
 
     page = session.get(url).text
     os.makedirs(str(cache), exist_ok=True)
-    p.write_text(page, 'utf-8')
+    p.write_text(bs(page).prettify(), 'utf-8')
     return page
 
 
 def parse_ranking(page: str) -> Iterator[Tuple[str, int]]:
-    soup = bs4.BeautifulSoup(page, 'html.parser')
+    soup = bs(page)
 
     ranking, = [o for o in soup.find_all('table') if 'table-ranking' in o['class']]
     for row in ranking.find_all('tr'):
