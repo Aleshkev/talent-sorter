@@ -100,6 +100,8 @@ if __name__ == '__main__':
 
     scores: Dict[str, Tuple[float, Tuple[float, ...]]] = collections.defaultdict(lambda: (0, (0,) * n))
     for i, (url, multiplier) in enumerate(zip(args.urls, args.multipliers)):
+        if int(multiplier) == multiplier:
+            multiplier = int(multiplier)
         for person, score in parse_ranking(get_page(url, args.fresh)):
             total, detailed = scores[person]
             scores[person] = (total + score * multiplier, detailed[:i] + (score,) + detailed[i + 1:])
