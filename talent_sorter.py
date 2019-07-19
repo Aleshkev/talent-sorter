@@ -22,12 +22,12 @@ def bs(page: str):
 session = None
 
 
-def get_page(url: str, fresh: bool = False, cache: pathlib.Path = pathlib.Path('cache/')) -> str:
-    p = cache / (slugify.slugify(url) + '.html')
+def get_page(url: str, fresh: bool = False, cache: pathlib.Path = pathlib.Path("cache/")) -> str:
+    p = cache / (slugify.slugify(url) + ".html")
     print(f"{DARK}{url} → {p}", end=" ")
     if p.is_file() and not fresh:
         print(f"{DARK}– from cache")
-        return p.read_text('utf-8')
+        return p.read_text("utf-8")
     print(f"{DARK}– fetch")
 
     global session
@@ -38,7 +38,7 @@ def get_page(url: str, fresh: bool = False, cache: pathlib.Path = pathlib.Path('
         session.get(login_url)
 
         secret_file = pathlib.Path("secret.yaml")
-        assert secret_file.is_file(), "Please create file secret.yaml with username and password, see --help."
+        assert secret_file.is_file(), "Please create file secret.yaml with, see --help."
         secret = yaml.safe_load(secret_file.read_text("utf-8"))
         username = secret.get("username").strip()
         password = secret.get("password").strip()
@@ -49,59 +49,70 @@ def get_page(url: str, fresh: bool = False, cache: pathlib.Path = pathlib.Path('
         }, headers={
             "Referer": login_url
         })
-        assert bs(login_response.text).find(id="navbar-username").text.strip() == username, "Login failed. Probably."
+        assert bs(login_response.text).find(id="navbar-username").text.strip() == username, "Login probably failed."
 
     page = session.get(url).text
     os.makedirs(str(cache), exist_ok=True)
-    p.write_text(bs(page).prettify(), 'utf-8')
+    p.write_text(bs(page).prettify(), "utf-8")
     return page
 
 
 def parse_ranking(page: str) -> Iterator[Tuple[str, int]]:
     soup = bs(page)
 
-    ranking, = [o for o in soup.find_all('table') if 'table-ranking' in o['class']]
-    for row in ranking.find_all('tr'):
-        if row.find_all('th'):
+    ranking, = [o for o in soup.find_all("table") if "table-ranking" in o["class"]]
+    for row in ranking.find_all("tr"):
+        if row.find_all("th"):
             continue
-        name, = [str(o.get_text()).strip() for o in row.find_all('td', class_='user-cell')]
-        _, points, *_ = [int(o.get_text()) for o in row.find_all('td', class_='text-right') if o.get_text().strip()]
+        name, = [str(o.get_text()).strip() for o in row.find_all("td", class_="user-cell")]
+        _, points, *_ = [int(o.get_text()) for o in row.find_all("td", class_="text-right") if o.get_text().strip()]
         yield name, points
 
 
-if __name__ == '__main__':
-    default_urls = ["http://10.0.0.1/c/grupaa/ranking/",
-                    "http://10.0.0.1/c/grupa-b/ranking/",
-                    "http://10.0.0.1/c/grupa-c/ranking/"]
-    default_multipliers = [10, 3, 1]
+manual = """
+Since viewing rankings now requires logging in, a file with username and 
+password is needed. Please create a file secret.yaml with fields 'username'
+and 'password':
 
+    username: rszubartowski
+    password: Pr0gr4nn0vv4n13M3nt41n3
+    
+"""
+
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
-                                     epilog="As of recently, a file secrets.yaml with fields 'username' and 'password' "
-                                            "is required to log in. Example:\n"
-                                            "    username: ahitler\n"
-                                            "    password: correct horse battery staple\n"
-                                            "\n"
-                                            "Please report any issues at GitHub: "
-                                            "<https://github.com/Aleshkev/sio2-watcher>")
-    parser.add_argument('--fresh', '-f', help="Don't use cached page", action='store_true')
-    parser.add_argument('--urls', '-l', metavar='L', type=str, nargs='+', help="URLs of the rankings",
-                        default=default_urls)
-    parser.add_argument('--multipliers', '-m', metavar='M', type=float, nargs='+', help="Multipliers of the rankings",
-                        default=default_multipliers)
+                                     epilog=manual)
+    parser.add_argument("--fresh", "-f", help="don't use cached pages", action="store_true")
+    parser.add_argument("--default", "-d", help="add all default sources (from default_sources.yaml)",
+                        action="store_true")
+    parser.add_argument("--url", "-l", help="add one source: L – URL, M – multiplier", action="append", nargs=2,
+                        metavar=("L", "M"), dest="sources", default=[])
     args = parser.parse_args()
     args.fresh: bool
-    args.urls: Tuple[str]
-    args.multipliers: Tuple[float]
+    args.default: bool
+    args.sources: List[Tuple[str, str]]
 
-    assert len(args.urls) == len(args.multipliers)
-    n = len(args.urls)
+    sources = []
+    if args.default:
+        l = pathlib.Path("default_sources.txt").read_text().replace("\n", " ").split()
+        for url, multiplier in zip(l[0::2], l[1::2]):
+            sources.append((url, float(multiplier)))
+    for (url, multiplier) in args.sources:
+        sources.append((url, float(multiplier)))
+    n = len(sources)
+
+    sources.sort(key=lambda v: v[1], reverse=True)
+
+    sources = [(url, int(multiplier) if int(multiplier) == multiplier else multiplier) for (url, multiplier) in sources]
 
     colorama.init(autoreset=True)
 
+    for (url, multiplier) in sources:
+        print(f"{DARK}{url} {GREY}× {multiplier}")
+
     scores: Dict[str, Tuple[float, Tuple[float, ...]]] = collections.defaultdict(lambda: (0, (0,) * n))
-    for i, (url, multiplier) in enumerate(zip(args.urls, args.multipliers)):
-        if int(multiplier) == multiplier:
-            multiplier = int(multiplier)
+    for i, (url, multiplier) in enumerate(sources):
         for person, score in parse_ranking(get_page(url, args.fresh)):
             total, detailed = scores[person]
             scores[person] = (total + score * multiplier, detailed[:i] + (score,) + detailed[i + 1:])
