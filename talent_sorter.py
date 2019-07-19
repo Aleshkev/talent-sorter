@@ -105,6 +105,7 @@ if __name__ == "__main__":
     sources.sort(key=lambda v: v[1], reverse=True)
 
     sources = [(url, int(multiplier) if int(multiplier) == multiplier else multiplier) for (url, multiplier) in sources]
+    assert len(sources) > 0, "No sources to get data from."
 
     colorama.init(autoreset=True)
 
